@@ -2,16 +2,15 @@
   "name": "大宗物资价格查询",
   "short_name": "物资行情",
   "description": "制造业大宗物资实时价格查询系统",
-  "start_url": "/index.html",
+  "start_url": "/commodity-price/index.html",
+  "scope": "/commodity-price/",
   "display": "standalone",
   "background_color": "#0a2d52",
   "theme_color": "#0a2d52",
   "orientation": "portrait-primary",
   "lang": "zh-CN",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-  ],
-  "categories": ["business", "finance"],
-  "screenshots": []
+    { "src": "/commodity-price/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/commodity-price/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
 }
