@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#0a2d52">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="物资行情">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>大宗物资价格查询</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --blue:#0a2d52;--blue2:#1a6fa8;--blue3:#e8f4fd;
+  --red:#cf1322;--redbg:#fff1f0;
+  --green:#389e0d;--greenbg:#f6ffed;
+  --border:#e8e8e8;--text:#1a1a1a;--text2:#666;--text3:#999;
+  --card:#fff;--bg:#f0f2f5;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bot:env(safe-area-inset-bottom,0px);
+}
+html,body{height:100%;overflow:hidden;font-family:'PingFang SC','Microsoft YaHei',Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+
+/* ── 顶部 ── */
+.topbar{background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;
+  padding:calc(var(--safe-top) + 12px) 16px 12px;
+  display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;
+  box-shadow:0 2px 8px rgba(0,0,0,0.2)}
+.topbar .logo{font-size:22px}
+.topbar h1{font-size:16px;font-weight:600;flex:1}
+.topbar .refresh-btn{background:rgba(255,255,255,0.2);border:none;color:#fff;
+  padding:6px 12px;border-radius:20px;font-size:12px;cursor:pointer;font-family:inherit}
+.topbar .refresh-btn:active{background:rgba(255,255,255,0.35)}
+
+/* ── 搜索栏 ── */
+.searchbar{background:#fff;padding:10px 14px;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--border);position:sticky;top:60px;z-index:99}
+.searchbar input{flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:20px;
+  font-size:14px;outline:none;background:#f8f9fa;font-family:inherit}
+.searchbar input:focus{border-color:var(--blue2);background:#fff}
+.searchbar .clear-btn{color:var(--text3);background:none;border:none;font-size:18px;cursor:pointer;padding:4px}
+
+/* ── Tab导航 ── */
+.tabs{background:#fff;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:108px;z-index:98}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:10px 16px;font-size:13px;color:var(--text2);white-space:nowrap;cursor:pointer;
+  border-bottom:2px solid transparent;flex-shrink:0;transition:all 0.2s}
+.tab.active{color:var(--blue2);border-bottom-color:var(--blue2);font-weight:600}
+
+/* ── 汇总统计条 ── */
+.stats-bar{display:flex;gap:8px;padding:10px 14px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.stats-bar::-webkit-scrollbar{display:none}
+.stat-chip{background:#fff;border-radius:10px;padding:8px 14px;text-align:center;flex-shrink:0;
+  border:1px solid var(--border);min-width:80px}
+.stat-chip .sv{font-size:18px;font-weight:700;color:var(--blue)}
+.stat-chip .sl{font-size:11px;color:var(--text3);margin-top:2px}
+.stat-chip .sc{font-size:11px;margin-top:2px}
+
+/* ── 主内容 ── */
+.content{height:calc(100vh - 160px);overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--safe-bot) + 70px)}
+
+/* ── 分类标题 ── */
+.cat-header{padding:12px 14px 6px;font-size:13px;font-weight:600;color:var(--text2);
+  display:flex;align-items:center;gap:6px;background:var(--bg);
+  border-left:3px solid var(--blue2);margin:6px 0 0}
+
+/* ── 价格卡片列表 ── */
+.price-list{padding:0 12px;display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.price-card{background:var(--card);border-radius:12px;padding:14px;
+  border:1px solid var(--border);display:flex;align-items:center;gap:12px;
+  cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden}
+.price-card:active{background:#f5f9ff;border-color:var(--blue2);transform:scale(0.99)}
+.price-card.starred::before{content:'★';position:absolute;top:8px;right:10px;font-size:14px;color:#faad14}
+.price-card .card-left{flex:1;min-width:0}
+.price-card .mat-name{font-size:15px;font-weight:600;color:var(--text);margin-bottom:2px;
+  display:flex;align-items:center;gap:6px}
+.price-card .mat-spec{font-size:11px;color:var(--text3);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.price-card .tags{display:flex;gap:5px;flex-wrap:wrap}
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;white-space:nowrap}
+.tag.up{background:var(--redbg);color:var(--red)}
+.tag.down{background:var(--greenbg);color:var(--green)}
+.tag.flat{background:#f5f5f5;color:var(--text3)}
+.tag.src{background:#f0f7ff;color:var(--blue2)}
+.price-card .card-right{text-align:right;flex-shrink:0}
+.price-card .price-val{font-size:20px;font-weight:700;color:var(--blue);line-height:1.2}
+.price-card .price-unit{font-size:10px;color:var(--text3);margin-top:2px}
+.price-card .trend-icon{font-size:18px;margin-top:4px}
+
+/* ── 底部导航 ── */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;
+  background:#fff;border-top:1px solid var(--border);
+  display:flex;padding-bottom:var(--safe-bot);
+  box-shadow:0 -2px 12px rgba(0,0,0,0.08);z-index:200}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;
+  padding:10px 4px 6px;cursor:pointer;color:var(--text3);font-size:10px;gap:3px;
+  transition:color 0.15s}
+.nav-item.active{color:var(--blue2)}
+.nav-item .nav-icon{font-size:22px;line-height:1}
+.nav-item:active{background:#f5f9ff}
+
+/* ── 详情抽屉 ── */
+.drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300}
+.drawer-bg.show{display:block}
+.drawer{position:fixed;bottom:0;left:0;right:0;background:#fff;
+  border-radius:20px 20px 0 0;padding:0 0 calc(var(--safe-bot) + 16px);
+  max-height:85vh;overflow-y:auto;z-index:301;
+  transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.4,0,0.2,1)}
+.drawer.open{transform:translateY(0)}
+.drawer-handle{width:40px;height:4px;background:#e0e0e0;border-radius:2px;margin:12px auto 0}
+.drawer-head{padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between}
+.drawer-head h2{font-size:17px;font-weight:600}
+.drawer-close{font-size:22px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px}
+.drawer-body{padding:16px 18px}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.detail-item{background:#f8f9fa;border-radius:10px;padding:12px}
+.detail-item .dl{font-size:11px;color:var(--text3);margin-bottom:4px}
+.detail-item .dv{font-size:17px;font-weight:600}
+.action-row{display:flex;gap:10px;margin-bottom:16px}
+.action-btn{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:500;
+  border:none;cursor:pointer;font-family:inherit;text-align:center}
+.action-btn.primary{background:var(--blue2);color:#fff}
+.action-btn.secondary{background:#f0f7ff;color:var(--blue2)}
+.action-btn:active{opacity:0.85}
+.history-list{display:flex;flex-direction:column;gap:6px}
+.hist-item{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 0;border-bottom:1px solid #f5f5f5;font-size:13px}
+.hist-item:last-child{border-bottom:none}
+
+/* ── 预警面板 ── */
+.alert-panel{padding:14px}
+.alert-empty{text-align:center;padding:40px;color:var(--text3)}
+.alert-empty .icon{font-size:48px;display:block;margin-bottom:12px}
+.alert-card{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;
+  border:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.alert-card .ac-info{flex:1}
+.alert-card .ac-name{font-size:15px;font-weight:600;margin-bottom:4px}
+.alert-card .ac-range{font-size:12px;color:var(--text2)}
+.alert-card .ac-del{background:#fff1f0;color:var(--red);border:none;border-radius:8px;
+  padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+
+/* ── 预警设置弹窗 ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:400;
+  align-items:flex-end;justify-content:center}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:20px 20px 0 0;padding:20px 20px calc(var(--safe-bot)+20px);
+  width:100%;max-height:60vh}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:16px;text-align:center}
+.form-item{margin-bottom:14px}
+.form-item label{display:block;font-size:13px;color:var(--text2);margin-bottom:6px}
+.form-item input,.form-item select{width:100%;padding:12px 14px;border:1px solid var(--border);
+  border-radius:10px;font-size:14px;outline:none;font-family:inherit;background:#f8f9fa}
+.form-item input:focus,.form-item select:focus{border-color:var(--blue2);background:#fff}
+.form-row{display:flex;gap:10px}
+.form-row .form-item{flex:1}
+.modal-btns{display:flex;gap:10px;margin-top:6px}
+.modal-btns button{flex:1;padding:13px;border-radius:12px;font-size:15px;
+  font-weight:500;border:none;cursor:pointer;font-family:inherit}
+.modal-btns .save{background:var(--blue2);color:#fff}
+.modal-btns .cancel{background:#f0f0f0;color:var(--text)}
+
+/* ── 收藏空状态 ── */
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-state .icon{font-size:56px;display:block;margin-bottom:14px}
+.empty-state p{font-size:14px;line-height:1.6}
+
+/* 安装提示横幅 */
+.install-banner{background:linear-gradient(135deg,var(--blue),var(--blue2));
+  color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;
+  font-size:13px;cursor:pointer}
+.install-banner .ib-close{margin-left:auto;background:none;border:none;color:#fff;font-size:18px;cursor:pointer}
+
+/* 搜索结果 */
+.search-count{font-size:12px;color:var(--text3);padding:8px 14px}
+
+/* 刷新动画 */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinning{animation:spin 1s linear infinite;display:inline-block}
+</style>
+</head>
+<body>
+
+<!-- 安装提示 -->
+<div class="install-banner" id="installBanner" style="display:none">
+  <span>📲</span>
+  <span>添加到手机桌面，像App一样使用</span>
+  <button class="ib-close" onclick="document.getElementById('installBanner').style.display='none'">✕</button>
+</div>
+
+<!-- 顶部栏 -->
+<div class="topbar">
+  <div class="logo">📊</div>
+  <h1>大宗物资行情</h1>
+  <button class="refresh-btn" onclick="refreshAll()" id="refreshBtn">⟳ 刷新</button>
+</div>
+
+<!-- 搜索栏 -->
+<div class="searchbar">
+  <input type="search" id="searchInp" placeholder="搜索品种：螺纹钢、铜、原油..." oninput="doSearch(this.value)" autocomplete="off">
+  <button class="clear-btn" onclick="clearSearch()" id="clearBtn" style="display:none">✕</button>
+</div>
+
+<!-- Tab导航 -->
+<div class="tabs" id="tabBar">
+  <div class="tab active" onclick="switchCat('all',this)">全部</div>
+  <div class="tab" onclick="switchCat('steel',this)">⚙️ 钢铁</div>
+  <div class="tab" onclick="switchCat('nonferrous',this)">🔶 有色</div>
+  <div class="tab" onclick="switchCat('energy',this)">⛽ 能源</div>
+  <div class="tab" onclick="switchCat('agri',this)">🌾 农产品</div>
+  <div class="tab" onclick="switchCat('chem',this)">🧪 化工</div>
+  <div class="tab" onclick="switchCat('fav',this)">⭐ 收藏</div>
+</div>
+
+<!-- 主内容 -->
+<div class="content" id="content">
+  <!-- 统计条 -->
+  <div class="stats-bar" id="statsBar"></div>
+  <!-- 搜索结果数 -->
+  <div class="search-count" id="searchCount" style="display:none"></div>
+  <!-- 列表区域 -->
+  <div id="listArea"></div>
+</div>
+
+<!-- 底部导航 -->
+<div class="bottom-nav">
+  <div class="nav-item active" id="nav-home" onclick="switchNav('home')">
+    <div class="nav-icon">🏠</div><div>首页</div>
+  </div>
+  <div class="nav-item" id="nav-chart" onclick="switchNav('chart')">
+    <div class="nav-icon">📈</div><div>涨跌榜</div>
+  </div>
+  <div class="nav-item" id="nav-alert" onclick="switchNav('alert')">
+    <div class="nav-icon">🔔</div><div>预警</div>
+  </div>
+  <div class="nav-item" id="nav-export" onclick="exportCSV()">
+    <div class="nav-icon">📥</div><div>导出</div>
+  </div>
+</div>
+
+<!-- 详情抽屉 -->
+<div class="drawer-bg" id="drawerBg" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-head">
+    <h2 id="drawerTitle">详情</h2>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<!-- 预警设置弹窗 -->
+<div class="modal-bg" id="alertModal" onclick="if(event.target===this)closeAlertModal()">
+  <div class="modal">
+    <h3>🔔 设置价格预警</h3>
+    <div class="form-item">
+      <label>品种</label>
+      <select id="alertSel"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-item">
+        <label>涨到多少提醒</label>
+        <input type="number" id="alertHigh" placeholder="价格上限">
+      </div>
+      <div class="form-item">
+        <label>跌到多少提醒</label>
+        <input type="number" id="alertLow" placeholder="价格下限">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="cancel" onclick="closeAlertModal()">取消</button>
+      <button class="save" onclick="saveAlert()">保存预警</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// 数据
+// ═══════════════════════════════════════
+const DATA = [
+  {id:'rb',cat:'steel',cn:'钢铁',name:'螺纹钢',spec:'HRB400E Φ16-25mm',p:3680,unit:'元/吨',w:-1.2,m:2.3,src:'上期所',h52:4120,l52:3380},
+  {id:'hrc',cat:'steel',cn:'钢铁',name:'热轧卷板',spec:'Q235B 3.0-12mm',p:3820,unit:'元/吨',w:0.5,m:3.1,src:'上期所',h52:4350,l52:3560},
+  {id:'crc',cat:'steel',cn:'钢铁',name:'冷轧卷板',spec:'DC01 0.5-2.0mm',p:4280,unit:'元/吨',w:0.3,m:2.5,src:'现货',h52:4780,l52:3980},
+  {id:'pp_s',cat:'steel',cn:'钢铁',name:'中板',spec:'Q345B 16-40mm',p:3950,unit:'元/吨',w:-0.6,m:1.9,src:'现货',h52:4450,l52:3680},
+  {id:'ss304',cat:'steel',cn:'钢铁',name:'304不锈钢',spec:'冷轧2B 2.0mm',p:13800,unit:'元/吨',w:1.2,m:-1.5,src:'无锡现货',h52:16200,l52:12500},
+  {id:'ss316',cat:'steel',cn:'钢铁',name:'316不锈钢',spec:'冷轧2B 2.0mm',p:19500,unit:'元/吨',w:0.8,m:-0.9,src:'无锡现货',h52:22000,l52:17800},
+  {id:'s45',cat:'steel',cn:'钢铁',name:'45号钢',spec:'圆棒 Φ20-100',p:4800,unit:'元/吨',w:0.2,m:1.1,src:'华东现货',h52:5200,l52:4380},
+  {id:'gcr15',cat:'steel',cn:'钢铁',name:'轴承钢GCr15',spec:'圆棒 Φ20-60',p:6200,unit:'元/吨',w:0.0,m:0.5,src:'华东现货',h52:6800,l52:5600},
+  {id:'cr12mov',cat:'steel',cn:'钢铁',name:'Cr12MoV模具钢',spec:'锻件/板材',p:38000,unit:'元/吨',w:0.3,m:1.2,src:'华东现货',h52:42000,l52:34000},
+  {id:'galv',cat:'steel',cn:'钢铁',name:'镀锌板',spec:'DX51D Z100',p:4650,unit:'元/吨',w:0.6,m:2.8,src:'华东现货',h52:5200,l52:4200},
+
+  {id:'cu',cat:'nonferrous',cn:'有色金属',name:'铜',spec:'1#电解铜 99.95%',p:78500,unit:'元/吨',w:2.1,m:5.3,src:'长江现货',h52:88000,l52:68000},
+  {id:'al',cat:'nonferrous',cn:'有色金属',name:'铝',spec:'A00铝锭 99.7%',p:20200,unit:'元/吨',w:-0.8,m:1.2,src:'长江现货',h52:22500,l52:17800},
+  {id:'zn',cat:'nonferrous',cn:'有色金属',name:'锌',spec:'0#锌锭 99.995%',p:23800,unit:'元/吨',w:1.5,m:3.8,src:'长江现货',h52:26500,l52:20000},
+  {id:'ni',cat:'nonferrous',cn:'有色金属',name:'镍',spec:'电解镍 99.9%',p:128000,unit:'元/吨',w:-2.3,m:-8.5,src:'长江现货',h52:198000,l52:115000},
+  {id:'sn',cat:'nonferrous',cn:'有色金属',name:'锡',spec:'1#锡锭 99.9%',p:265000,unit:'元/吨',w:1.8,m:6.2,src:'长江现货',h52:285000,l52:220000},
+  {id:'al6061',cat:'nonferrous',cn:'有色金属',name:'铝合金6061',spec:'T6棒材/板材',p:22000,unit:'元/吨',w:1.2,m:3.5,src:'华东现货',h52:25000,l52:19000},
+  {id:'t2cu',cat:'nonferrous',cn:'有色金属',name:'紫铜T2',spec:'板/棒/管',p:72000,unit:'元/吨',w:1.8,m:4.5,src:'华东现货',h52:82000,l52:62000},
+  {id:'brass',cat:'nonferrous',cn:'有色金属',name:'黄铜H62',spec:'棒材Φ10-100',p:52000,unit:'元/吨',w:-0.5,m:2.8,src:'华东现货',h52:60000,l52:46000},
+  {id:'ti',cat:'nonferrous',cn:'有色金属',name:'钛合金TC4',spec:'棒材/板材',p:320000,unit:'元/吨',w:0.3,m:1.8,src:'华东现货',h52:360000,l52:280000},
+  {id:'au',cat:'nonferrous',cn:'有色金属',name:'黄金',spec:'Au9999',p:612,unit:'元/克',w:0.5,m:3.2,src:'上金所',h52:680,l52:520},
+  {id:'ag',cat:'nonferrous',cn:'有色金属',name:'白银',spec:'Ag99.99',p:7.8,unit:'元/克',w:1.2,m:8.5,src:'上金所',h52:9.2,l52:6.1},
+
+  {id:'coal',cat:'energy',cn:'能源化工',name:'动力煤',spec:'Q5500大卡',p:680,unit:'元/吨',w:-1.5,m:-5.2,src:'郑商所',h52:950,l52:620},
+  {id:'coke',cat:'energy',cn:'能源化工',name:'焦炭',spec:'二级冶金焦',p:1980,unit:'元/吨',w:-1.8,m:-6.5,src:'大商所',h52:2800,l52:1800},
+  {id:'crude',cat:'energy',cn:'能源化工',name:'原油',spec:'WTI/Brent',p:548,unit:'元/桶',w:0.8,m:-3.2,src:'INE',h52:680,l52:480},
+  {id:'lng',cat:'energy',cn:'能源化工',name:'液化天然气LNG',spec:'工业用',p:4200,unit:'元/吨',w:-3.2,m:-12.5,src:'华东现货',h52:7200,l52:3800},
+  {id:'pp_r',cat:'energy',cn:'能源化工',name:'聚丙烯PP',spec:'T30S拉丝级',p:7650,unit:'元/吨',w:0.3,m:1.5,src:'大商所',h52:8500,l52:6800},
+  {id:'pvc',cat:'energy',cn:'能源化工',name:'PVC',spec:'SG5型',p:5680,unit:'元/吨',w:-0.8,m:-2.3,src:'上期所',h52:6800,l52:5200},
+
+  {id:'corn',cat:'agri',cn:'农产品',name:'玉米',spec:'国标三等',p:2380,unit:'元/吨',w:-0.5,m:-3.8,src:'大商所',h52:2780,l52:2200},
+  {id:'soy',cat:'agri',cn:'农产品',name:'大豆',spec:'国产大豆',p:4580,unit:'元/吨',w:0.3,m:1.2,src:'大商所',h52:5200,l52:4100},
+  {id:'cotton',cat:'agri',cn:'农产品',name:'棉花',spec:'328级皮棉',p:15800,unit:'元/吨',w:1.1,m:3.5,src:'郑商所',h52:18500,l52:13500},
+  {id:'rubber',cat:'agri',cn:'农产品',name:'天然橡胶',spec:'SCR WF',p:14200,unit:'元/吨',w:2.3,m:8.5,src:'上期所',h52:16500,l52:11000},
+  {id:'sugar',cat:'agri',cn:'农产品',name:'白糖',spec:'一级白糖',p:6250,unit:'元/吨',w:-0.8,m:-2.1,src:'郑商所',h52:7200,l52:5600},
+
+  {id:'methanol',cat:'chem',cn:'化工原料',name:'甲醇',spec:'优等品',p:2450,unit:'元/吨',w:-1.8,m:-5.3,src:'郑商所',h52:3200,l52:2100},
+  {id:'caustic',cat:'chem',cn:'化工原料',name:'烧碱',spec:'32%液碱',p:680,unit:'元/吨',w:1.2,m:3.5,src:'华东现货',h52:980,l52:580},
+  {id:'urea',cat:'chem',cn:'化工原料',name:'尿素',spec:'大颗粒46%N',p:1850,unit:'元/吨',w:-0.8,m:-4.5,src:'郑商所',h52:2500,l52:1600},
+  {id:'epoxy',cat:'chem',cn:'化工原料',name:'环氧树脂',spec:'E44双酚A型',p:16500,unit:'元/吨',w:0.8,m:3.2,src:'华东现货',h52:20000,l52:14000},
+  {id:'pom',cat:'chem',cn:'化工原料',name:'POM工程塑料',spec:'均聚M90-44',p:13500,unit:'元/吨',w:0.3,m:1.5,src:'华东现货',h52:16000,l52:12000},
+  {id:'pa66',cat:'chem',cn:'化工原料',name:'PA66尼龙',spec:'EPR24注塑级',p:21000,unit:'元/吨',w:-0.5,m:2.3,src:'华东现货',h52:26000,l52:18500},
+];
+
+let favSet = new Set(JSON.parse(localStorage.getItem('favs')||'[]'));
+let alerts = JSON.parse(localStorage.getItem('alerts')||'[]');
+let currentCat = 'all';
+let currentNav = 'home';
+let searchVal = '';
+let deferredPrompt = null;
+
+// ═══════════════════════════════════════
+// 初始化
+// ═══════════════════════════════════════
+function init() {
+  renderStats();
+  renderList();
+  populateAlertSel();
+  checkAlerts();
+  setInterval(() => { simulateTick(); checkAlerts(); }, 20000);
+
+  // PWA安装提示
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault(); deferredPrompt = e;
+    document.getElementById('installBanner').style.display = 'flex';
+  });
+  document.getElementById('installBanner').addEventListener('click', async () => {
+    if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; }
+    document.getElementById('installBanner').style.display = 'none';
+  });
+
+  // Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+}
+
+// ═══════════════════════════════════════
+// 格式化价格
+// ═══════════════════════════════════════
+function fmt(p) {
+  if (p >= 10000) return (p/10000).toFixed(p>=100000?1:2)+'万';
+  if (p < 100) return p.toFixed(2);
+  return p.toLocaleString('zh-CN');
+}
+
+// ═══════════════════════════════════════
+// 统计条
+// ═══════════════════════════════════════
+function renderStats() {
+  const cats = [
+    {k:'steel',l:'钢铁',e:'⚙️'},{k:'nonferrous',l:'有色',e:'🔶'},
+    {k:'energy',l:'能源',e:'⛽'},{k:'agri',l:'农产品',e:'🌾'},{k:'chem',l:'化工',e:'🧪'}
+  ];
+  document.getElementById('statsBar').innerHTML = cats.map(c => {
+    const items = DATA.filter(x=>x.cat===c.k);
+    const up = items.filter(x=>x.w>0).length;
+    const dn = items.filter(x=>x.w<0).length;
+    return `<div class="stat-chip">
+      <div style="font-size:16px">${c.e}</div>
+      <div class="sv">${items.length}</div>
+      <div class="sl">${c.l}</div>
+      <div class="sc"><span style="color:var(--red)">↑${up}</span> <span style="color:var(--green)">↓${dn}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// 渲染列表
+// ═══════════════════════════════════════
+function renderList() {
+  const listEl = document.getElementById('listArea');
+  const countEl = document.getElementById('searchCount');
+
+  // 收藏页
+  if (currentCat === 'fav') {
+    const favItems = DATA.filter(x => favSet.has(x.id));
+    if (!favItems.length) {
+      listEl.innerHTML = '<div class="empty-state"><span class="icon">⭐</span><p>暂无收藏<br>点击品种详情中"加入收藏"</p></div>';
+    } else {
+      listEl.innerHTML = '<div class="price-list">' + favItems.map(renderCard).join('') + '</div>';
+    }
+    countEl.style.display = 'none';
+    return;
+  }
+
+  // 预警页（通过底部nav切换，不在tab里）
+
+  let items = DATA;
+  if (currentCat !== 'all') items = items.filter(x => x.cat === currentCat);
+  if (searchVal) {
+    items = items.filter(x => x.name.includes(searchVal) || x.spec.includes(searchVal) || x.cn.includes(searchVal));
+    countEl.textContent = `找到 ${items.length} 个品种`;
+    countEl.style.display = items.length ? 'block' : 'none';
+  } else {
+    countEl.style.display = 'none';
+  }
+
+  if (!items.length) {
+    listEl.innerHTML = '<div class="empty-state"><span class="icon">🔍</span><p>没有找到匹配品种</p></div>';
+    return;
+  }
+
+  if (currentCat === 'all' && !searchVal) {
+    // 按分类分组
+    const groups = [
+      {k:'steel',l:'⚙️ 钢铁'},{k:'nonferrous',l:'🔶 有色金属'},
+      {k:'energy',l:'⛽ 能源化工'},{k:'agri',l:'🌾 农产品'},{k:'chem',l:'🧪 化工原料'}
+    ];
+    listEl.innerHTML = groups.map(g => {
+      const gi = items.filter(x=>x.cat===g.k);
+      if(!gi.length) return '';
+      return `<div class="cat-header">${g.l} <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px">${gi.length}种</span></div>
+        <div class="price-list">${gi.map(renderCard).join('')}</div>`;
+    }).join('');
+  } else {
+    listEl.innerHTML = '<div class="price-list">' + items.map(renderCard).join('') + '</div>';
+  }
+}
+
+function renderCard(item) {
+  const wc = item.w>0?'up':item.w<0?'down':'flat';
+  const mc = item.m>0?'up':item.m<0?'down':'flat';
+  const ws = (item.w>0?'▲':'▼')+Math.abs(item.w).toFixed(1)+'%周';
+  const ms = (item.m>0?'▲':'▼')+Math.abs(item.m).toFixed(1)+'%月';
+  const trend = item.w>2?'🔥':item.w<-2?'📉':item.w>0.5?'📈':'';
+  const starred = favSet.has(item.id) ? 'starred' : '';
+  return `<div class="price-card ${starred}" onclick="showDetail('${item.id}')">
+    <div class="card-left">
+      <div class="mat-name">${item.name}</div>
+      <div class="mat-spec">${item.spec}</div>
+      <div class="tags">
+        <span class="tag ${wc}">${ws}</span>
+        <span class="tag ${mc}">${ms}</span>
+        <span class="tag src">${item.src}</span>
+      </div>
+    </div>
+    <div class="card-right">
+      <div class="price-val">${fmt(item.p)}</div>
+      <div class="price-unit">${item.unit}</div>
+      <div class="trend-icon">${trend}</div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════
+// 详情抽屉
+// ═══════════════════════════════════════
+function showDetail(id) {
+  const item = DATA.find(x=>x.id===id);
+  if(!item) return;
+  document.getElementById('drawerTitle').textContent = item.name;
+  const wc = item.w>0?'var(--red)':item.w<0?'var(--green)':'var(--text3)';
+  const mc = item.m>0?'var(--red)':item.m<0?'var(--green)':'var(--text3)';
+
+  // 近6个月模拟历史
+  const months=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const now = new Date().getMonth();
+  let histHtml='';
+  for(let i=5;i>=0;i--){
+    const m=(now-i+12)%12;
+    const p=(item.p*(0.9+Math.random()*0.2)).toFixed(item.p<100?2:0);
+    const c=(Math.random()*8-4).toFixed(1);
+    const cc=c>0?'var(--red)':'var(--green)';
+    histHtml+=`<div class="hist-item"><span>${months[m]}</span><span><strong>${Number(p).toLocaleString()}</strong> ${item.unit}</span><span style="color:${cc}">${c>0?'+':''}${c}%</span></div>`;
+  }
+
+  document.getElementById('drawerBody').innerHTML = `
+    <div class="detail-grid">
+      <div class="detail-item" style="grid-column:1/-1">
+        <div class="dl">当前参考价</div>
+        <div class="dv" style="font-size:26px;color:var(--blue)">${fmt(item.p)} <small style="font-size:13px;color:var(--text3)">${item.unit}</small></div>
+      </div>
+      <div class="detail-item"><div class="dl">本周涨跌</div><div class="dv" style="color:${wc}">${item.w>0?'▲':'▼'} ${Math.abs(item.w).toFixed(1)}%</div></div>
+      <div class="detail-item"><div class="dl">本月涨跌</div><div class="dv" style="color:${mc}">${item.m>0?'▲':'▼'} ${Math.abs(item.m).toFixed(1)}%</div></div>
+      <div class="detail-item"><div class="dl">52周最高</div><div class="dv" style="color:var(--red)">${fmt(item.h52)}</div></div>
+      <div class="detail-item"><div class="dl">52周最低</div><div class="dv" style="color:var(--green)">${fmt(item.l52)}</div></div>
+      <div class="detail-item"><div class="dl">数据来源</div><div class="dv" style="font-size:14px">${item.src}</div></div>
+      <div class="detail-item"><div class="dl">规格</div><div class="dv" style="font-size:13px">${item.spec}</div></div>
+    </div>
+    <div class="action-row">
+      <button class="action-btn ${favSet.has(id)?'secondary':'primary'}" onclick="toggleFav('${id}');showDetail('${id}')" id="favBtn_${id}">
+        ${favSet.has(id)?'★ 已收藏':'☆ 加入收藏'}
+      </button>
+      <button class="action-btn secondary" onclick="closeDrawer();openAlertModal('${id}')">🔔 设预警</button>
+    </div>
+    <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:10px">📅 近6个月价格走势</div>
+    <div class="history-list">${histHtml}</div>`;
+
+  document.getElementById('drawerBg').classList.add('show');
+  setTimeout(()=>document.getElementById('drawer').classList.add('open'),10);
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerBg').classList.remove('show');
+}
+
+// ═══════════════════════════════════════
+// 收藏
+// ═══════════════════════════════════════
+function toggleFav(id) {
+  if(favSet.has(id)) favSet.delete(id); else favSet.add(id);
+  localStorage.setItem('favs', JSON.stringify([...favSet]));
+  renderList();
+}
+
+// ═══════════════════════════════════════
+// 涨跌榜
+// ═══════════════════════════════════════
+function showRankPanel() {
+  const sorted = [...DATA].sort((a,b)=>b.w-a.w);
+  const top5 = sorted.slice(0,5);
+  const bot5 = sorted.slice(-5).reverse();
+  document.getElementById('listArea').innerHTML = `
+    <div class="cat-header">🔥 本周涨幅榜 TOP5</div>
+    <div class="price-list">${top5.map(renderCard).join('')}</div>
+    <div class="cat-header">📉 本周跌幅榜 TOP5</div>
+    <div class="price-list">${bot5.map(renderCard).join('')}</div>`;
+  document.getElementById('statsBar').style.display='none';
+  document.getElementById('searchCount').style.display='none';
+}
+
+// ═══════════════════════════════════════
+// 预警
+// ═══════════════════════════════════════
+function populateAlertSel() {
+  document.getElementById('alertSel').innerHTML = DATA.map(x=>`<option value="${x.id}">${x.name} (${x.unit})</option>`).join('');
+}
+
+function openAlertModal(id) {
+  if(id) document.getElementById('alertSel').value = id;
+  document.getElementById('alertHigh').value='';
+  document.getElementById('alertLow').value='';
+  document.getElementById('alertModal').classList.add('show');
+}
+
+function closeAlertModal() { document.getElementById('alertModal').classList.remove('show'); }
+
+function saveAlert() {
+  const id = document.getElementById('alertSel').value;
+  const high = document.getElementById('alertHigh').value;
+  const low = document.getElementById('alertLow').value;
+  if(!high && !low) { alert('请填写至少一个预警价格'); return; }
+  const item = DATA.find(x=>x.id===id);
+  alerts = alerts.filter(a=>a.id!==id);
+  alerts.push({id, name:item.name, unit:item.unit, high:high||null, low:low||null});
+  localStorage.setItem('alerts', JSON.stringify(alerts));
+  closeAlertModal();
+  if(currentNav==='alert') showAlertPanel();
+}
+
+function checkAlerts() {
+  alerts.forEach(a => {
+    const item = DATA.find(x=>x.id===a.id);
+    if(!item) return;
+    if(a.high && item.p >= +a.high) showToast(`⚠️ ${item.name} 涨至 ${fmt(item.p)}，已超上限 ${a.high}`);
+    if(a.low && item.p <= +a.low) showToast(`⚠️ ${item.name} 跌至 ${fmt(item.p)}，已低于下限 ${a.low}`);
+  });
+}
+
+function showAlertPanel() {
+  document.getElementById('tabBar').style.display='none';
+  document.getElementById('statsBar').style.display='none';
+  document.getElementById('searchCount').style.display='none';
+  if(!alerts.length) {
+    document.getElementById('listArea').innerHTML='<div class="empty-state"><span class="icon">🔔</span><p>暂无预警<br>点击品种详情设置价格预警</p></div>';
+    return;
+  }
+  document.getElementById('listArea').innerHTML = '<div class="alert-panel">' +
+    alerts.map(a=>`<div class="alert-card">
+      <div class="ac-info">
+        <div class="ac-name">${a.name}</div>
+        <div class="ac-range">
+          ${a.high?`<span style="color:var(--red)">上限：${a.high} ${a.unit}</span> `:''} 
+          ${a.low?`<span style="color:var(--green)">下限：${a.low} ${a.unit}</span>`:''}
+        </div>
+      </div>
+      <button class="ac-del" onclick="delAlert('${a.id}')">删除</button>
+    </div>`).join('') + 
+    `<div style="text-align:center;margin-top:16px"><button class="action-btn primary" onclick="openAlertModal()" style="max-width:200px">+ 新增预警</button></div>
+    </div>`;
+}
+
+function delAlert(id) {
+  alerts = alerts.filter(a=>a.id!==id);
+  localStorage.setItem('alerts', JSON.stringify(alerts));
+  showAlertPanel();
+}
+
+// ═══════════════════════════════════════
+// Toast提示
+// ═══════════════════════════════════════
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText='position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:999;max-width:90vw;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 3000);
+}
+
+// ═══════════════════════════════════════
+// 搜索
+// ═══════════════════════════════════════
+function doSearch(val) {
+  searchVal = val.trim();
+  document.getElementById('clearBtn').style.display = searchVal ? 'block' : 'none';
+  if(searchVal) {
+    // 搜索时切回全部
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab')[0].classList.add('active');
+    currentCat = 'all';
+  }
+  renderList();
+}
+
+function clearSearch() {
+  document.getElementById('searchInp').value='';
+  searchVal='';
+  document.getElementById('clearBtn').style.display='none';
+  document.getElementById('searchCount').style.display='none';
+  renderList();
+}
+
+// ═══════════════════════════════════════
+// Tab & Nav切换
+// ═══════════════════════════════════════
+function switchCat(cat, el) {
+  currentCat = cat; searchVal='';
+  document.getElementById('searchInp').value='';
+  document.getElementById('clearBtn').style.display='none';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tabBar').style.display='flex';
+  document.getElementById('statsBar').style.display='flex';
+  currentNav='home';
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('nav-home').classList.add('active');
+  renderList();
+}
+
+function switchNav(nav) {
+  currentNav=nav;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('nav-'+nav)?.classList.add('active');
+  if(nav==='home'){
+    document.getElementById('tabBar').style.display='flex';
+    document.getElementById('statsBar').style.display='flex';
+    renderList();
+  } else if(nav==='chart'){
+    document.getElementById('tabBar').style.display='none';
+    showRankPanel();
+  } else if(nav==='alert'){
+    showAlertPanel();
+  }
+}
+
+// ═══════════════════════════════════════
+// 刷新行情
+// ═══════════════════════════════════════
+function refreshAll() {
+  const btn=document.getElementById('refreshBtn');
+  btn.innerHTML='<span class="spinning">⟳</span> 刷新中';
+  btn.disabled=true;
+  setTimeout(()=>{
+    simulateTick();
+    btn.innerHTML='⟳ 刷新';
+    btn.disabled=false;
+    showToast('行情已更新 · '+new Date().toLocaleTimeString('zh-CN'));
+  }, 1200);
+}
+
+function simulateTick() {
+  DATA.forEach(item=>{
+    item.p = +(item.p*(1+(Math.random()-0.49)*0.006)).toFixed(item.p<100?2:0);
+    item.w = +(item.w+(Math.random()-0.5)*0.2).toFixed(1);
+    item.m = +(item.m+(Math.random()-0.5)*0.15).toFixed(1);
+  });
+  renderStats();
+  renderList();
+}
+
+// ═══════════════════════════════════════
+// 导出CSV
+// ═══════════════════════════════════════
+function exportCSV() {
+  let csv='品种,分类,规格,参考价,单位,周涨跌%,月涨跌%,52周高,52周低,来源\n';
+  DATA.forEach(x=>{csv+=`${x.name},${x.cn},${x.spec},${x.p},${x.unit},${x.w},${x.m},${x.h52},${x.l52},${x.src}\n`;});
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  a.download=`大宗物资价格_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.csv`;
+  a.click();URL.revokeObjectURL(url);
+  showToast('数据已导出');
+}
+
+init();
+</script>
+</body>
+</html>
